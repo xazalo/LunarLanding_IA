@@ -1,6 +1,6 @@
 import numpy as np
 
-def step_eval(points, last_points, epsilon, scale=5.0):
+def training_performance(points, last_points, epsilon, scale=5.0):
     """
     Calculates a reward based on performance improvement.
     Calcula una recompensa basada en la mejora del rendimiento.

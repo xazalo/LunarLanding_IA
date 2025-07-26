@@ -11,7 +11,7 @@ import numpy as np
 # Import teacher modules / Importar módulos de profesores
 from teachers.main_motor import main_motor
 from teachers.aux_motors import aux_motors
-from teachers.step_eval import step_eval
+from teachers.training_performance import training_performance
 from teachers.landing import landing
 
 # Import master modules / Importar módulos maestros
@@ -173,7 +173,7 @@ while True:
         state, terminated, truncated, total_reward, EPSILON
     )
 
-    tP = step_eval(
+    tP = training_performance(
         points, 
         last_points, 
         EPSILON 
