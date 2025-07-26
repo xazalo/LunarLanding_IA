@@ -1,22 +1,25 @@
 import numpy as np
 
-def main_motor(steps, engine_activations):
+def main_motor(steps, engine_activations, epsilon, landings):
     """
     Adjusts the reward focusing on:
     - Efficiency in main engine usage (few activations)
-    
-    Doesn't directly handle landings.
+    - Allows for some flexibility before the first landing
     
     Ajusta la recompensa enfocándose en:
-    - Eficiencia en el uso del motor principal (pocos encendidos)
-    
-    No gestiona landings directamente.
+    - Eficiencia del uso del motor principal (pocos encendidos)
+    - Permite cierta flexibilidad antes del primer aterrizaje
     """
 
-    # 2. Engine efficiency: fewer activations = better
-    # 2. Eficiencia del motor: pocos encendidos = mejor
-    efficiency_score = (steps - engine_activations) / max(steps, 1)  # ∈ [0,1] - efficiency ratio
-    efficiency_reward = efficiency_score * 1  # Adjust this value if it penalizes too little/much
+    # Efficiency score ∈ [0, 1] - better if fewer activations
+    efficiency_score = (steps - engine_activations) / max(steps, 1)
+
+    if landings == 0:
+        # Antes de aterrizar, bonificamos levemente el uso del motor para explorar
+        efficiency_reward = 0.5 * engine_activations * epsilon
+    else:
+        # Tras aterrizar, penalizamos ineficiencia
+        efficiency_reward = efficiency_score * 0.1 * epsilon
 
     return {
         'reward': efficiency_reward

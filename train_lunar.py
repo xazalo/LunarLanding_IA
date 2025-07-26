@@ -13,6 +13,7 @@ from teachers.main_motor import main_motor
 from teachers.aux_motors import aux_motors
 from teachers.training_performance import training_performance
 from teachers.landing import landing
+from teachers.crash import crash
 
 # Import master modules / Importar módulos maestros
 from masters.adjust_epsilon import adjust_epsilon
@@ -157,20 +158,32 @@ while True:
     points = total_reward
 
     # Calculate main motor reward / Calcular recompensa del motor principal
-    tA = main_motor(
+    tMm = main_motor(
         steps=steps_this_episode,
         engine_activations=last_engine_activations,
+        epsilon=EPSILON,
+        landings=landings
     )
 
     # Calculate auxiliary motors reward / Calcular recompensa de motores auxiliares
     aux_engine_activations = {'right': right_engine_activations, 'left': left_engine_activations}
-    tB = aux_motors(
+    tAm = aux_motors(
         aux_engine_activations=aux_engine_activations,
         roll=state[4],
     )
 
-    tC = landing(
+    tL = landing(
         state, terminated, truncated, total_reward, EPSILON
+    )
+
+    tC = crash(
+        state=state,
+        terminated=terminated,
+        truncated=truncated,
+        total_reward=total_reward,
+        epsilon=EPSILON,
+        landings=landings,
+        crashes=crashes 
     )
 
     tP = training_performance(
@@ -183,13 +196,14 @@ while True:
     # print(tA['reward'], tB['reward'], tP['reward'])
 
     # Normalize rewards / Normalizar rewards
-    norm_tA = 100 * np.tanh(tA['reward'] / 50.0)          
-    norm_tB = 100 * np.tanh(tB['reward'] / 200.0)         
+    norm_tMm = 100 * np.tanh(tMm['reward'] / 50.0)          
+    norm_tAm = 100 * np.tanh(tAm['reward'] / 200.0)         
     norm_tP = 100 * np.tanh(tP['reward'] / 5.0)
+    norm_tL = tL['reward']
     norm_tC = tC['reward']
 
     # AJuste de pesos / wheight adjust
-    points_sum = (norm_tA * 0.4 * 10) + (norm_tB * 0.3 * 12) + (norm_tP * 5) + (norm_tC * 35)
+    points_sum = (norm_tMm * 0.4 * 10) + (norm_tAm * 0.3 * 12) + (norm_tP * 5) + (norm_tL * 35) + (norm_tC * 25)
 
     # Logs for adjust wheights just in dev / para actualizar pesos en desarollo
     # print(norm_tA, norm_tB, norm_tP)

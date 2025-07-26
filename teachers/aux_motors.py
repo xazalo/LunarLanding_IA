@@ -17,7 +17,7 @@ def aux_motors(aux_engine_activations, roll):
 
     # 1. Penalty for excessive use of lateral engines
     # Penalizamos solo si activaciones > tolerancia (ej. 30)
-    tolerance = 30
+    tolerance = 5
     if total_aux_activations > tolerance:
         # Penalize only activations beyond tolerance threshold
         # Penaliza solo activaciones más allá del umbral de tolerancia
