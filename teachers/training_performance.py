@@ -1,22 +1,23 @@
 import numpy as np
 
-def training_performance(points, last_points, epsilon, scale=5.0):
+def training_performance(points, last_points, scale=100.0):
     """
-    Calculates a reward based on performance improvement.
-    Calcula una recompensa basada en la mejora del rendimiento.
+    Calcula una recompensa basada en la mejora del rendimiento,
+    normalizada en el rango [-100, 100].
 
     Args:
-        points (float): Current episode reward.
-        last_points (float): Previous episode reward.
-        epsilon (float): Current epsilon value.
-        scale (float): Scaling factor for sensitivity.
+        points (float): Recompensa del episodio actual.
+        last_points (float): Recompensa del episodio anterior.
+        epsilon (float): Valor actual de epsilon.
+        scale (float): Escala máxima de recompensa (por defecto 100).
 
     Returns:
-        float: Reward based on performance improvement.
+        dict: Recompensa normalizada.
     """
+
     delta = points - last_points
-    scaled_delta = np.tanh(delta / 200.0)  # Normalized to [-1, 1]
-    reward = scaled_delta * epsilon * scale
+    scaled_delta = np.tanh(delta / 1000.0)  # Normaliza entre [-1, 1]
+    reward = scaled_delta * scale  # Escala a [-100, 100]
     return {
         'reward': reward
     }

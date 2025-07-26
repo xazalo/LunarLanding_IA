@@ -1,43 +1,30 @@
-def landing(state, terminated, truncated, total_reward, epsilon):
+def landing(state, terminated, truncated, bonus):
     """
-    Calculates the landing reward if successful, adjusted by epsilon.
-    Calcula la recompensa del aterrizaje si fue exitoso, ajustada por épsilon.
+    Calcula la recompensa del aterrizaje si fue exitoso (sin usar epsilon).
 
-    Args/Argumentos:
-        state (list): Final episode state / Estado final del episodio
-        terminated (bool): Whether it ended naturally / Si terminó naturalmente
-        truncated (bool): Whether it ended by timeout / Si terminó por tiempo
-        total_reward (float): Total episode reward / Recompensa total del episodio
-        epsilon (float): Current exploration level / Nivel de exploración actual
+    Args:
+        state (list): Estado final del episodio.
+        terminated (bool): Si terminó naturalmente.
+        truncated (bool): Si terminó por tiempo.
+        bonus (float): Recompensa total del episodio.
 
-    Returns/Retorna:
-        int: Normalized and adjusted landing reward (or 0 if not applicable)
-              Recompensa del aterrizaje normalizada y ajustada (o 0 si no aplica)
+    Returns:
+        dict: Recompensa del aterrizaje (0 si no aplica).
     """
-    # Check if both legs are in contact with ground
-    # Verificar si ambas patas están en contacto con el suelo
     legs_contact = state[6] == 1 and state[7] == 1
-    
-    # Conditions for successful landing:
-    # 1. Episode terminated naturally (not timeout)
-    # 2. Reward indicates good performance (>100)
-    # 3. Both legs touching ground
-    # Condiciones para aterrizaje exitoso:
-    # 1. Episodio terminado naturalmente (no por tiempo)
-    # 2. Recompensa indica buen desempeño (>100)
-    # 3. Ambas patas tocando el suelo
-    if terminated and not truncated and total_reward > 100 and legs_contact:
-        # Scale reward and adjust by exploration factor
-        # Escalar recompensa y ajustar por factor de exploración
-        scaled_reward = int((total_reward / 10) * epsilon)
+
+    if terminated and not truncated and legs_contact and bonus > 0:
+        # Multiplicar para amplificar valores pequeños
+        scaled_reward = bonus * 1000
         
-        print(f"[SUCCESS] Successful landing! Reward: {scaled_reward} | ¡Aterrizaje exitoso! Recompensa: {scaled_reward}")
         return {
-             'reward': scaled_reward
-            }
-    
-    # No successful landing conditions met
-    # No se cumplieron las condiciones de aterrizaje exitoso
+            'reward': scaled_reward,
+            'landing': 1,
+            'bonus': bonus
+        }
+
     return {
-        'reward': 0
+        'reward': 0,
+        'landing': 0,
+        'bonus': 0
     }

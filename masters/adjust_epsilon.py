@@ -1,53 +1,40 @@
 import numpy as np
 
-def adjust_epsilon(epsilon, current_points, prev_points,
+def adjust_epsilon(epsilon, points, last_points,
                    min_epsilon=0.01, max_epsilon=1.0,
-                   decay_base=0.01, reward_influence=0.005):
+                   decay_base=0.01, increase_base=0.01,
+                   sensitivity=500.0,):
     """
-    Adjusts epsilon based on points change:
-    - Decreases epsilon if improving (less exploration)
-    - Increases epsilon if worsening (more exploration)
-    - Keeps epsilon within given bounds
+    Ajusta epsilon dependiendo del progreso y nivel de exploración actual.
 
-    Ajusta epsilon basado en el cambio de puntos:
-    - Disminuye epsilon si mejora (menos exploración)
-    - Aumenta epsilon si empeora (más exploración)
-    - Mantiene epsilon dentro de los límites dados
-
-    Args/Argumentos:
-        epsilon (float): current epsilon value / valor actual de epsilon
-        current_points (float): current points / puntos actuales
-        prev_points (float): previous points / puntos anteriores
-        min_epsilon (float): minimum epsilon / epsilon mínimo
-        max_epsilon (float): maximum epsilon / epsilon máximo
-        decay_base (float): base change / cambio base
-        reward_influence (float): performance influence / influencia del rendimiento
-
-    Returns/Retorna:
-        float: new epsilon value / nuevo valor de epsilon
-        float: current points (for next call) / puntos actuales (para siguiente llamada)
+    - Si epsilon > 0.5:
+        * Mejora → bajar más rápido
+        * Empeora → subir más lento
+    - Si epsilon <= 0.5:
+        * Mejora → bajar más lento
+        * Empeora → subir más rápido
+    - Si los puntos > 0: fijar epsilon en 0.2
     """
 
-    # Calculate point difference / Calcular diferencia de puntos
-    point_delta = current_points - prev_points
-    
-    # Normalize effect using tanh (range -1 to 1)
-    # Normalizar efecto usando tanh (rango -1 a 1)
-    normalized_effect = np.tanh(point_delta / 100.0)
+    # ⬇️ Lógica estándar de ajuste
+    delta = points - last_points
+    adjustment = np.tanh(delta / sensitivity)  # Normaliza a [-1, 1]
 
-    if point_delta >= 0:
-        # Improvement: decrease epsilon / Mejora: disminuir epsilon
-        epsilon -= (decay_base + reward_influence * normalized_effect)
+    if epsilon > 0.5:
+        if delta > 0:
+            # Baja rápido (poca exploración)
+            epsilon -= (decay_base * 1) * adjustment * (epsilon / max_epsilon)
+        else:
+            # Sube lento
+            epsilon += (increase_base * 0.5) * abs(adjustment) * ((max_epsilon - epsilon) / max_epsilon)
     else:
-        # Worsening: increase epsilon / Empeora: aumentar epsilon
-        epsilon += (decay_base - reward_influence * normalized_effect)
+        if delta > 0:
+            # Baja lento
+            epsilon -= (decay_base * 1) * adjustment * (epsilon / max_epsilon)
+        else:
+            # Sube rápido
+            epsilon += (increase_base * 0.5) * abs(adjustment) * ((max_epsilon - epsilon) / max_epsilon)
 
-    # Keep epsilon within allowed range
-    # Mantener epsilon dentro del rango permitido
+    # Asegura límites
     epsilon = max(min(epsilon, max_epsilon), min_epsilon)
-
-    # Update previous points for next call
-    # Actualizar puntos anteriores para siguiente llamada
-    prev_points = current_points
-
-    return round(epsilon, 3)  # Return rounded value / Retornar valor redondeado
+    return round(epsilon, 3), points

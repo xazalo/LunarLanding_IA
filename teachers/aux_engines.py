@@ -17,7 +17,7 @@ def aux_engines(aux_engine_activations, roll):
 
     # 1. Penalty for excessive use of lateral engines
     # Penalizamos solo si activaciones > tolerancia (ej. 30)
-    tolerance = 5
+    tolerance = 10
     if total_aux_activations > tolerance:
         # Penalize only activations beyond tolerance threshold
         # Penaliza solo activaciones más allá del umbral de tolerancia
@@ -29,7 +29,7 @@ def aux_engines(aux_engine_activations, roll):
     # El roll puede ir de -π a π. Penaliza más conforme se aleja de 0.
     # Absolute value of roll (deviation from vertical) multiplied by penalty factor
     # Valor absoluto del roll (desviación de la vertical) multiplicado por factor de penalización
-    stability_penalty = -abs(roll) * 1000
+    stability_penalty = -0.5 * (roll * 2)
 
     # 3. Base points sum
     # Suma base de puntos

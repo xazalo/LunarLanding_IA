@@ -9,11 +9,13 @@ from collections import deque
 import numpy as np 
 
 # Import teacher modules / Importar módulos de profesores
-from teachers.main_motor import main_motor
-from teachers.aux_motors import aux_motors
+from teachers.main_engine import main_engine
+from teachers.aux_engines import aux_engines
 from teachers.training_performance import training_performance
 from teachers.landing import landing
 from teachers.crash import crash
+from teachers.step_eval import step_eval
+from teachers.safe_crash import safe_crash
 
 # Import master modules / Importar módulos maestros
 from masters.adjust_epsilon import adjust_epsilon
@@ -31,11 +33,14 @@ MIN_EPSILON = 0.01  # Minimum exploration rate / Tasa mínima de exploración
 BATCH_SIZE = 64  # Training batch size / Tamaño del lote de entrenamiento
 BUFFER_SIZE = 100_000  # Replay buffer size / Tamaño del buffer de experiencia
 MAX_STEPS = 1000  # Max steps per episode / Máximo de pasos por episodio
-VALUE_FOR_HUMAN = 0.0001  # Epsilon threshold for human rendering / Umbral para renderizado humano
+VALUE_FOR_HUMAN = 0  # Epsilon threshold for human rendering / Umbral para renderizado humano
 PATH = './models'  # Model save path / Ruta para guardar modelos
 MODEL_NAME = 'LuLa_v1'  # Model name / Nombre del modelo
 BEST_REWARD = float('-inf')  # Track best reward / Seguimiento de mejor recompensa
 SAVE_EPSILON_THRESHOLD = 0.95  # Epsilon threshold for saving / Umbral para guardar modelo
+SAVE_EPSILON_STEP=0.1
+last_saved_epsilon_threshold = 1.0 
+bonus = 0
 
 # Initialize environment first to get observation and action sizes
 # Inicializar entorno primero para obtener tamaño de observación y acciones
@@ -76,10 +81,10 @@ loss_fn = nn.MSELoss()  # Loss function / Función de pérdida
 
 # Global variables / Variables globales
 steps = 0  # Total steps / Pasos totales
-points = 0  # Current points / Puntos actuales
 last_points = 0  # Last episode points / Puntos del último episodio
 episode = 0  # Episode counter / Contador de episodios
 replay_buffer = deque(maxlen=BUFFER_SIZE)  # Experience replay buffer / Buffer de experiencia
+last_bonus = 0
 
 def select_action(state, epsilon):
     """Select action using epsilon-greedy policy / Seleccionar acción con política epsilon-greedy"""
@@ -144,7 +149,7 @@ while True:
             last_engine_activations += 1
 
         # Store experience in replay buffer / Almacenar experiencia en el buffer
-        replay_buffer.append((state, action, reward, done, next_state))
+        replay_buffer.append((state, action, (bonus * 100), done, next_state))
         total_reward += reward
         steps_this_episode += 1
         steps += 1
@@ -155,28 +160,34 @@ while True:
         if done:
             break
 
-    points = total_reward
-
     # Calculate main motor reward / Calcular recompensa del motor principal
-    tMm = main_motor(
+    rME = main_engine(
         steps=steps_this_episode,
         engine_activations=last_engine_activations,
-        epsilon=EPSILON,
-        landings=landings
+        state=state,
+        MAX_STEPS=MAX_STEPS
     )
+
+    if rME.get('WrongDirection', False):
+        print("❌ Dirección incorrecta detectada. Penalización severa aplicada.")
 
     # Calculate auxiliary motors reward / Calcular recompensa de motores auxiliares
     aux_engine_activations = {'right': right_engine_activations, 'left': left_engine_activations}
-    tAm = aux_motors(
+    rAE = aux_engines(
         aux_engine_activations=aux_engine_activations,
         roll=state[4],
     )
 
-    tL = landing(
-        state, terminated, truncated, total_reward, EPSILON
+    rL = landing(
+        state, terminated, truncated, bonus
     )
 
-    tC = crash(
+    landings += rL['landing']
+
+    if rL['landing'] == 1:
+        EPSILON -= 0.005
+        
+    rC = crash(
         state=state,
         terminated=terminated,
         truncated=truncated,
@@ -186,29 +197,56 @@ while True:
         crashes=crashes 
     )
 
-    tP = training_performance(
-        points, 
-        last_points, 
-        EPSILON 
+    crashes += rC['crash']
+    if rC['crash'] == 1:
+        EPSILON += 0.002
+
+    rSE = step_eval(
+        steps=steps_this_episode,
+        MAX_STEPS=MAX_STEPS
     )
 
-    # just for development
-    # print(tA['reward'], tB['reward'], tP['reward'])
+    rSC = safe_crash(
+        state, EPSILON
+    )
+
+    soft_crashes += rSC['soft_crash']
+    if rSC['soft_crash'] == 1:
+        crashes -= rC['crash']
+        EPSILON -= 0.003
+
+    tP = training_performance(
+        bonus, 
+        last_bonus, 
+    )
+
+    last_bonus = bonus
 
     # Normalize rewards / Normalizar rewards
-    norm_tMm = 100 * np.tanh(tMm['reward'] / 50.0)          
-    norm_tAm = 100 * np.tanh(tAm['reward'] / 200.0)         
+    norm_rME = rME['reward'] * 10   
+    norm_rAE = 100 * np.tanh(rAE['reward'] / 200.0)         
     norm_tP = 100 * np.tanh(tP['reward'] / 5.0)
-    norm_tL = tL['reward']
-    norm_tC = tC['reward']
-
-    # AJuste de pesos / wheight adjust
-    points_sum = (norm_tMm * 0.4 * 10) + (norm_tAm * 0.3 * 12) + (norm_tP * 5) + (norm_tL * 35) + (norm_tC * 25)
+    norm_rL = rL['reward'] / 100
+    norm_rC = rC['reward']
+    norm_rSE = rSE['reward'] * 10
+    norm_rSC = rSC['reward']
 
     # Logs for adjust wheights just in dev / para actualizar pesos en desarollo
-    # print(norm_tA, norm_tB, norm_tP)
+    print(
+        f"Recompensas normalizadas:\n"
+        f"  Motor principal (rME): {norm_rME:.2f}\n"
+        f"  Motores auxiliares (rAE): {norm_rAE:.2f}\n"
+        f"  Performance entrenamiento (tP): {norm_tP:.2f}\n"
+        f"  Aterrizaje (rL): {norm_rL:.2f}\n"
+        f"  Crash (rC): {norm_rC:.2f}\n"
+        f"  Evaluación de pasos (rSE): {norm_rSE:.2f}\n"
+        f"  Crash suave (rSC): {norm_rSC:.2f}"
+    )
 
-    bonus = adjust_reward(points_sum, last_points)
+    # AJuste de pesos / wheight adjust
+    redward_sum = (norm_rME * 10) + (norm_rAE * 12) + (norm_tP * 5) + (norm_rL * 35) + (norm_rC * 25) + (norm_rSE * 15) + (norm_rSC * 3)
+
+    bonus = adjust_reward(redward_sum, last_points)
 
     # Update rewards in replay buffer / Actualizar recompensas en el buffer
     for i in range(1, steps_this_episode + 1):
@@ -217,8 +255,7 @@ while True:
             s, a, _, d, ns = replay_buffer[idx]
             replay_buffer[idx] = (s, a, bonus, d, ns)
 
-    # Adjust exploration rate / Ajustar tasa de exploración
-    EPSILON = adjust_epsilon(EPSILON, points, last_points)
+    EPSILON, last_points = adjust_epsilon(EPSILON, redward_sum, last_points)
 
     # Switch to human render mode if epsilon is low enough
     # Cambiar a modo de renderizado humano si epsilon es suficientemente bajo
@@ -227,21 +264,17 @@ while True:
         env = gym.make("LunarLander-v3", render_mode="human")
         print("Human rendering activated / Renderizado humano activado")
 
+    #print(f"Ep {episode} | Epsilon: {EPSILON:.3f} | Bonus: {bonus:.2f} | Landings: {landings} | Soft Crash: {soft_crashes}, Crashes: {crashes}, Steps: {steps}.")
+    print(f"Ep {episode} | Épsilon: {EPSILON:.3f} | Bono: {bonus:.2f} | Aterrizajes: {landings} | Amerizajes: {soft_crashes}, Accidentes: {crashes}, Pasos: {steps}")
+
     # Update tracking variables / Actualizar variables de seguimiento
-    last_points = points
+    redward_sum = 0
     episode += 1
-    points = 0
 
-    print(f"Ep {episode} | Epsilon: {EPSILON:.3f} | Reward: {total_reward:.2f} | Bonus: {bonus:.2f} | Landings: {landings} | Soft Crash: {soft_crashes}")
-    print(f"Ep {episode} | Épsilon: {EPSILON:.3f} | Recompensa: {total_reward:.2f} | Bono: {bonus:.2f} | Aterrizajes: {landings} | Amerizajes: {soft_crashes}")
-
-
-
-    # Save model if it's the best so far and exploration is low
-    # Guardar modelo si es el mejor hasta ahora y la exploración es baja
-    if total_reward > BEST_REWARD and EPSILON < SAVE_EPSILON_THRESHOLD:
-        BEST_REWARD = total_reward
-        print(f"✅ Saving model (reward: {total_reward:.2f}, epsilon: {EPSILON:.3f})")
-        print(f"✅ Guardando modelo (recompensa: {total_reward:.2f}, épsilon: {EPSILON:.3f})")
+# Comprobar si hemos cruzado un nuevo umbral de epsilon
+    if EPSILON < last_saved_epsilon_threshold - SAVE_EPSILON_STEP:
+        last_saved_epsilon_threshold -= SAVE_EPSILON_STEP
+        print(f"📉 Epsilon crossed threshold: {last_saved_epsilon_threshold:.2f}")
+        print(f"💾 Saving model due to epsilon decrease")
         save_model(model, base_path=PATH, filename=f"{MODEL_NAME}.pth")
-        save_metadata(EPSILON, 0, 0, 0, base_path=PATH, filename="metadata.pth")
+        save_metadata(EPSILON, landings, crashes, soft_crashes, base_path=PATH, filename=f"metadata_eps{last_saved_epsilon_threshold:.2f}.pth")
