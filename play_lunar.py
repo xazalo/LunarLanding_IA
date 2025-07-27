@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-# Red neuronal (debe ser igual a la usada durante el entrenamiento)
 class DQN(nn.Module):
     def __init__(self, obs_size, n_actions):
         super(DQN, self).__init__()
@@ -18,17 +17,14 @@ class DQN(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-# Crear entorno con visualización
 env = gym.make("LunarLander-v3", render_mode="human")
 obs_size = env.observation_space.shape[0]
 n_actions = env.action_space.n
 
-# Cargar modelo
 model = DQN(obs_size, n_actions)
-model.load_state_dict(torch.load("models/LuLa_v1.pth"))  # Asegúrate de que este archivo exista
-model.eval()  # Modo evaluación (desactiva dropout, etc.)
+model.load_state_dict(torch.load("models/PERFECT_Lula_v1.pth"))  
+model.eval()  
 
-# Ejecutar un episodio
 state, _ = env.reset()
 done = False
 total_reward = 0
@@ -40,6 +36,8 @@ while not done:
         action = torch.argmax(q_vals).item()
     state, reward, done, _, _ = env.step(action)
     total_reward += reward
+
+print(f"🏁 Reward: {total_reward:.2f}")
 
 env.close()
 

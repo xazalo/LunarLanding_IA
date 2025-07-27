@@ -17,9 +17,7 @@ This project involves the development of an artificial intelligence capable of l
 
 ├── models/ # Storage for trained models
 
-├── masters/ # Dynamic adjustment of the epsilon parameter
-
-│ └── epsilon_basic_adjust.py
+├── masters/ # Dynamic adjustment of the parameters
 
 └── teachers/ # Specialized learning modules
 
@@ -33,7 +31,7 @@ This project involves the development of an artificial intelligence capable of l
 
 ├── landing.py
 
-└── step_eval.py
+└── center_performance.py
 
 ---
 
@@ -48,7 +46,7 @@ The AI is trained through specialized modules called **"teachers"**, each respon
 | `landing.py`     | Scores the quality of the landing based on epsilon. This is the primary objective.            |
 | `crash.py`       | Encourages crashes in early stages when epsilon and score are low, to accelerate learning.    |
 | `safe_crash.py`  | Evaluates water landings. Initially rewards them, but penalizes them as epsilon improves.     |
-| `step_eval.py`   | Evaluates the number of actions taken. Tolerates many at first, then optimizes fuel consumption. |
+| `center_performance.py`   | Evaluates if the agent is in the center or not. |
 | `aux_engines.py` | Controls auxiliary engines to prevent critical angular deviations.                            |
 | `main_engine.py` | Teaches efficient use of the main engine to save fuel.                                       |
 
@@ -72,8 +70,8 @@ Each module contributes a different weight to the AI's total learning:
 - **crash** – 25%  
   It's crucial to avoid collisions, especially in advanced phases.
 
-- **step_eval** – 15%  
-  Optimizes the use of actions to reduce fuel consumption.
+- **center_performance** – 15%  
+  Ensure agent stay in the center.
 
 - **aux_engines** – 12%  
   Ensures horizontal stability during landing.

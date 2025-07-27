@@ -15,11 +15,9 @@ Este proyecto consiste en el desarrollo de una inteligencia artificial capaz de 
 
 ├── models/ # Almacenamiento de los modelos entrenados
 
-├── masters/ # Ajuste dinámico del parámetro epsilon
+├── masters/ # Ajuste dinámico de parámetros
 
 ├── gym_manager/ # Sirve para gestionar el guardado de los modelos
-
-│ └── epsilon_basic_adjust.py
 
 ├── teachers/ # Módulos de aprendizaje especializados
 
@@ -33,7 +31,7 @@ Este proyecto consiste en el desarrollo de una inteligencia artificial capaz de 
 
 │ ├── landing.py
 
-│ └── step_eval.py
+│ └── center_performance.py
 
 ## 🧠 Lógica de Aprendizaje
 
@@ -48,7 +46,7 @@ La IA se entrena a través de **módulos especializados** llamados "teachers", c
 | `landing.py`        | Puntúa la calidad del aterrizaje en base al `epsilon`. Es el objetivo principal. |
 | `crash.py`          | Estimula los choques en etapas tempranas cuando `epsilon` y puntuación son bajos, para acelerar el aprendizaje. |
 | `safe_crash.py`     | Evalúa los amerizajes. Inicialmente los premia, pero los penaliza a medida que `epsilon` mejora. |
-| `step_eval.py`      | Evalúa el número de acciones realizadas. Tolera muchas al inicio, luego optimiza para reducir consumo. |
+| `center_performance.py`      | Se asegura que el agente priorize quedarse en el centro. | 
 | `aux_engines.py`    | Controla los motores auxiliares para evitar desviaciones angulares críticas. |
 | `main_engine.py`    | Enseña el uso eficiente del motor principal para ahorrar combustible. |
 
@@ -72,8 +70,8 @@ Cada módulo contribuye con un peso distinto al aprendizaje total de la IA:
 - **crash** – 25%  
   Es fundamental evitar colisiones, especialmente en fases avanzadas.
 
-- **step_eval** – 15%  
-  Optimiza el uso de acciones para reducir el consumo de combustible.
+- **center_performace** – 15%  
+  Se asegura que el agente se quede en el centro lo máximo posible.
 
 - **aux_engines** – 12%  
   Asegura la estabilidad horizontal durante el aterrizaje.
