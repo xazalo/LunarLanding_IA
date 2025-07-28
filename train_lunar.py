@@ -353,6 +353,8 @@ while True:
         metadata_path=os.path.join(PATH, "M.pth")
      )
 
+     metadata.clear()
+
      print("🔄 Training has been reset. | Entrenamiento reiniciado.")
 
     # Model saving condition / Condición para guardar modelo
@@ -374,6 +376,8 @@ while True:
         print(f"Saving model to: {filename} | Guardando modelo en: {filename}")
         save_model(model, base_path=PATH, filename=filename)
         save_metadata(metadata, base_path=PATH, filename=metadata_filename)
+
+        metadata.clear()
 
         # Evaluar el modelo guardado
         average_score, crash_ratio = evaluate_model(filename, TEST_EPISODES, MAX_STEPS)
