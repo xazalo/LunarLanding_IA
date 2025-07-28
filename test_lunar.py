@@ -2,6 +2,7 @@ import gymnasium as gym
 import torch
 import torch.nn as nn
 import numpy as np
+import os
 
 # Neural Network definition
 class DQN(nn.Module):
@@ -24,10 +25,9 @@ def evaluate_model(model_name, n_episodes, max_steps_per_episode):
     obs_size = env.observation_space.shape[0]
     n_actions = env.action_space.n
 
-    model_path = f"./models/{model_name}"
-    print(f"Loading trained model from '{model_path}'... / Cargando modelo entrenado desde '{model_path}'...")
+    print(f"Loading trained model from '{model_name}'... / Cargando modelo entrenado desde '{model_name}'...")
     model = DQN(obs_size, n_actions)
-    model.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
+    model.load_state_dict(torch.load(model_name, map_location=torch.device("cpu"), weights_only=False))
     model.eval()
 
     total_rewards = []
@@ -63,7 +63,8 @@ def evaluate_model(model_name, n_episodes, max_steps_per_episode):
             successes += 1
             outcome = "Good landing / Buen aterrizaje"
         elif episode_reward >= 0:
-            outcome = "Rough landing / Aterrizaje brusco"
+            successes +=1
+            outcome = "Rough landing / Aterrizaje Mediocre"
         else:
             crashes += 1
             outcome = "Crashed / Choque"

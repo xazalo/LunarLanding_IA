@@ -41,12 +41,15 @@ VALUE_FOR_HUMAN = 0  # Epsilon threshold for human rendering / Umbral para rende
 PATH = './models'  # Model save path / Ruta para guardar modelos
 MODEL_NAME = 'LuLa_v1'  # Model name / Nombre del modelo
 BEST_REWARD = float('-inf')  # Track best reward / Seguimiento de mejor recompensa
-MIN_EPSILON_FOR_SAVE = 0.011 # Value for save IA Agent / Valor para guardar la IA
+MIN_EPSILON_FOR_SAVE = 0.01 # Value for save IA Agent / Valor para guardar la IA
 bonus = 0 # Bonus for training / Bonus para el entrenamiento
 MAX_EPISODES=1500 # Number maxim of episodes
 TEST_EPISODES=200 # Number of test
 MAX_AI_SAVES=10 # Max number of ai saves
-MIN_BONUS_FOR_SAVE=10 # Minim points for save one ia
+MIN_BONUS_FOR_SAVE=100 # Minim points for save one ia
+MIN_AVERAGE_SCORE=200
+MAX_CRASH_RATIO=0
+CRASH_RATIO_HIGHT=50
 
 # //WARN There are infinite trainings / Hay entrenamientos infinitos
 
@@ -197,7 +200,7 @@ while True:
         print("🚀 Successful landing detected! | ¡Aterrizaje exitoso detectado!")
         EPSILON -= 0.018
     if rL['landing'] == 1 and EPSILON < 0.3:
-        EPSILON -= 0.06
+        EPSILON -= 0.04
     print(f"Landing Reward: {rL['reward']:.2f} | Recompensa Aterrizaje: {rL['reward']:.2f}")
 
     # Crash reward / Recompensa de choque
@@ -208,7 +211,7 @@ while True:
         EPSILON += 0.004
     if rC['crash'] == 1 and EPSILON > 0.3:
         print("💥 Crash detected! | ¡Choque detectado!")
-        EPSILON -= 0.001
+        EPSILON += 0.001
     print(f"Crash Reward: {rC['reward']:.2f} | Recompensa Choque: {rC['reward']:.2f}")
 
     # Safe crash reward / Recompensa de amerizaje seguro
@@ -370,29 +373,48 @@ while True:
     
         BEST_REWARD = bonus
         bonus_str = f"{bonus:.2f}".replace('.', '_')
-        filename = f"{MODEL_NAME}_bonus{bonus_str}.pth"
-        metadata_filename = f"metadata_bonus{bonus_str}.pth"
-    
-        print(f"Saving model to: {filename} | Guardando modelo en: {filename}")
+        filename = f"{MODEL_NAME}_bonus{bonus_str}_{MAX_AI_SAVES}.pth"
+        metadata_filename = f"metadata_bonus{bonus_str}_{MAX_AI_SAVES}.pth"
+
         save_model(model, base_path=PATH, filename=filename)
         save_metadata(metadata, base_path=PATH, filename=metadata_filename)
+        
+        model_path_eval = os.path.join(PATH, filename)
+        average_score, crash_ratio = evaluate_model(model_path_eval, TEST_EPISODES, MAX_STEPS)
 
-        # Evaluar el modelo guardado
-        average_score, crash_ratio = evaluate_model(filename, TEST_EPISODES, MAX_STEPS)
+        metadata.append({
+            "average_score": average_score,
+            "crash_ratio": crash_ratio,
+        })
+    
+        print(f"Saving model to: {filename} | Guardando modelo en: {filename}")
+        save_metadata(metadata, base_path=PATH, filename=metadata_filename)
 
         # Verificación de rendimiento
-        if crash_ratio < 10 and average_score > 100:
+        if crash_ratio <= MAX_CRASH_RATIO and average_score >= MIN_AVERAGE_SCORE:
             print("\n✅ Model PASSED evaluation — retained.")
             print("✅ El modelo PASÓ la evaluación — se conserva.")
             MAX_AI_SAVES -=1
-        elif crash_ratio > 50:
-                 # Reload metadata (optional)
-                EPSILON, landings, crashes, soft_crashes = initialize_state(
-                    model,
-                 model_path=os.path.join(PATH, f"Null.pth"),
-                 metadata_path=os.path.join(PATH, "M.pth")
-                 )
-                metadata.clear()
+            metadata.clear()
+        elif crash_ratio > CRASH_RATIO_HIGHT:
+            
+            metadata.clear()
+            
+            # Reload metadata (optional)
+            EPSILON, landings, crashes, soft_crashes = initialize_state(
+                model,
+                model_path=os.path.join(PATH, f"Null.pth"),
+                metadata_path=os.path.join(PATH, "M.pth")
+            )
+
+            model_path = os.path.join(PATH, filename)
+            metadata_path = os.path.join(PATH, metadata_filename)
+
+            if os.path.exists(model_path):
+                    os.remove(model_path)
+            if os.path.exists(metadata_path):
+                    os.remove(metadata_path)
+
         else:
             print("\n❌ Model FAILED evaluation — deleting...")
             print("❌ El modelo FALLÓ la evaluación — eliminando archivos...")
@@ -405,9 +427,12 @@ while True:
             if os.path.exists(metadata_path):
                 os.remove(metadata_path)
 
+            metadata.clear()
+
       else:
           print('Training completed')
           print('Entrenamiento completado')
+          metadata.clear()
           break
 
 

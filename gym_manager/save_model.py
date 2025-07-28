@@ -52,7 +52,7 @@ def save_metadata(entry, base_path="models", filename="metadata.pth"):
 
     # Load existing list or start new one
     if os.path.exists(full_path):
-        metadata_list = torch.load(full_path)
+        metadata_list = torch.load(full_path, weights_only=False)
     else:
         metadata_list = []
 

@@ -1,3 +1,4 @@
+matplotlib>=3.0.0
 absl-py==2.2.2
 aiohappyeyeballs==2.6.1
 aiohttp==3.11.18
@@ -208,7 +209,6 @@ tqdm==4.67.1
 trainer==0.0.36
 transformers==4.51.3
 triton==3.2.0
-TTS @ file:///media/xavier/Datos13/voice-ia/TTS
 typeguard==4.4.2
 typer==0.15.3
 typing-inspection==0.4.0
