@@ -41,7 +41,7 @@ VALUE_FOR_HUMAN = 0  # Epsilon threshold for human rendering / Umbral para rende
 PATH = './models'  # Model save path / Ruta para guardar modelos
 MODEL_NAME = 'LuLa_v1'  # Model name / Nombre del modelo
 BEST_REWARD = float('-inf')  # Track best reward / Seguimiento de mejor recompensa
-MIN_EPSILON_FOR_SAVE = 0.0111 # Value for save IA Agent / Valor para guardar la IA
+MIN_EPSILON_FOR_SAVE = 0.011 # Value for save IA Agent / Valor para guardar la IA
 bonus = 0 # Bonus for training / Bonus para el entrenamiento
 MAX_EPISODES=1500 # Number maxim of episodes
 TEST_EPISODES=200 # Number of test
@@ -197,7 +197,7 @@ while True:
         print("🚀 Successful landing detected! | ¡Aterrizaje exitoso detectado!")
         EPSILON -= 0.018
     if rL['landing'] == 1 and EPSILON < 0.3:
-        EPSILON -= 0.010
+        EPSILON -= 0.06
     print(f"Landing Reward: {rL['reward']:.2f} | Recompensa Aterrizaje: {rL['reward']:.2f}")
 
     # Crash reward / Recompensa de choque
@@ -377,8 +377,6 @@ while True:
         save_model(model, base_path=PATH, filename=filename)
         save_metadata(metadata, base_path=PATH, filename=metadata_filename)
 
-        metadata.clear()
-
         # Evaluar el modelo guardado
         average_score, crash_ratio = evaluate_model(filename, TEST_EPISODES, MAX_STEPS)
 
@@ -387,6 +385,14 @@ while True:
             print("\n✅ Model PASSED evaluation — retained.")
             print("✅ El modelo PASÓ la evaluación — se conserva.")
             MAX_AI_SAVES -=1
+        elif crash_ratio > 50:
+                 # Reload metadata (optional)
+                EPSILON, landings, crashes, soft_crashes = initialize_state(
+                    model,
+                 model_path=os.path.join(PATH, f"Null.pth"),
+                 metadata_path=os.path.join(PATH, "M.pth")
+                 )
+                metadata.clear()
         else:
             print("\n❌ Model FAILED evaluation — deleting...")
             print("❌ El modelo FALLÓ la evaluación — eliminando archivos...")
@@ -398,12 +404,6 @@ while True:
                 os.remove(model_path)
             if os.path.exists(metadata_path):
                 os.remove(metadata_path)
-            
-        EPSILON, landings, crashes, soft_crashes = initialize_state(
-            model,
-            model_path=os.path.join(PATH, f"Null.pth"),
-            metadata_path=os.path.join(PATH, "M.pth")
-        )
 
       else:
           print('Training completed')
