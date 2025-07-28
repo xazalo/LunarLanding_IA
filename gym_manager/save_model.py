@@ -38,30 +38,30 @@ def load_model(model, base_path="models", filename="qn_lufind.pth"):
     else:
         print("Model not found, will train from scratch / No se encontró el modelo, se entrenará desde cero")
 
-def save_metadata(epsilon, landings, crashes, soft_crashes, base_path="models", filename="metadata.pth"):
+def save_metadata(entry, base_path="models", filename="metadata.pth"):
     """
-    Save training metadata to file
-    Guarda metadatos de entrenamiento en archivo
-    
-    Args/Argumentos:
-        epsilon: Current exploration rate / Tasa actual de exploración
-        landings: Successful landings count / Contador de aterrizajes exitosos
-        crashes: Crash landings count / Contador de aterrizajes fallidos
-        soft_crashes: Soft crash count / Contador de aterrizajes semi-fallidos
-        base_path: Directory path / Ruta del directorio
-        filename: Metadata filename / Nombre del archivo de metadatos
+    Save metadata entry into a .pth file as a list of dictionaries.
+
+    Args:
+        entry (dict): One metadata record (with weighted values, bonus, etc.)
+        base_path (str): Directory to store metadata
+        filename (str): Name of the .pth file
     """
-    os.makedirs(base_path, exist_ok=True)  # Create dir if not exists / Crear directorio si no existe
+    os.makedirs(base_path, exist_ok=True)
     full_path = os.path.join(base_path, filename)
-    data = {
-        "epsilon": epsilon,
-        "landings": landings,
-        "crashes": crashes,
-        "soft_crashes": soft_crashes
-    }
-    torch.save(data, full_path)
-    print(f"Metadata saved successfully to {full_path}")
-    print(f"Metadatos guardados exitosamente en {full_path}")
+
+    # Load existing list or start new one
+    if os.path.exists(full_path):
+        metadata_list = torch.load(full_path)
+    else:
+        metadata_list = []
+
+    # Add the new entry
+    metadata_list.append(entry)
+
+    # Save updated list
+    torch.save(metadata_list, full_path)
+    print(f"✅ Metadata entry saved to {full_path}")
 
 def load_metadata(base_path="models", filename="metadata.pth"):
     """

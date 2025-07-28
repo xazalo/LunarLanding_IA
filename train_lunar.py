@@ -27,6 +27,9 @@ from gym_manager.save_model import save_model
 from gym_manager.save_model import save_metadata
 from gym_manager.load_model import initialize_state
 
+# Function for test / Funcion de testeo
+from test_lunar import evaluate_model
+
 # Constants / Constantes
 GAMMA = 0.99  # Discount factor / Factor de descuento
 LR = 1e-3  # Learning rate / Tasa de aprendizaje
@@ -38,10 +41,12 @@ VALUE_FOR_HUMAN = 0  # Epsilon threshold for human rendering / Umbral para rende
 PATH = './models'  # Model save path / Ruta para guardar modelos
 MODEL_NAME = 'LuLa_v1'  # Model name / Nombre del modelo
 BEST_REWARD = float('-inf')  # Track best reward / Seguimiento de mejor recompensa
-MINIM_EPSILON_FOR_SAVE = 0.0011 # Value for save IA Agent / Valor para guardar la IA
+MIN_EPSILON_FOR_SAVE = 0.0111 # Value for save IA Agent / Valor para guardar la IA
 bonus = 0 # Bonus for training / Bonus para el entrenamiento
-NUMBER_SAVES = 10 # Total de ia a guardar por entrenamiento / Total ia to save ench training
-MAX_EPISODES=1200
+MAX_EPISODES=1500 # Number maxim of episodes
+TEST_EPISODES=200 # Number of test
+MAX_AI_SAVES=10 # Max number of ai saves
+MIN_BONUS_FOR_SAVE=10 # Minim points for save one ia
 
 # //WARN There are infinite trainings / Hay entrenamientos infinitos
 
@@ -88,6 +93,7 @@ last_points = 0  # Last episode points / Puntos del último episodio
 episode = 0  # Episode counter / Contador de episodios
 replay_buffer = deque(maxlen=BUFFER_SIZE)  # Experience replay buffer / Buffer de experiencia
 last_bonus = 0
+metadata = []
 
 def select_action(state, epsilon):
     """Select action using epsilon-greedy policy / Seleccionar acción con política epsilon-greedy"""
@@ -191,7 +197,7 @@ while True:
         print("🚀 Successful landing detected! | ¡Aterrizaje exitoso detectado!")
         EPSILON -= 0.018
     if rL['landing'] == 1 and EPSILON < 0.3:
-        EPSILON -= 0.006
+        EPSILON -= 0.010
     print(f"Landing Reward: {rL['reward']:.2f} | Recompensa Aterrizaje: {rL['reward']:.2f}")
 
     # Crash reward / Recompensa de choque
@@ -202,7 +208,7 @@ while True:
         EPSILON += 0.004
     if rC['crash'] == 1 and EPSILON > 0.3:
         print("💥 Crash detected! | ¡Choque detectado!")
-        EPSILON += 0.001
+        EPSILON -= 0.001
     print(f"Crash Reward: {rC['reward']:.2f} | Recompensa Choque: {rC['reward']:.2f}")
 
     # Safe crash reward / Recompensa de amerizaje seguro
@@ -243,6 +249,39 @@ while True:
     bonus = adjust_reward(reward_sum, last_points, total_reward)
     print(f"\nTotal Weighted Reward: {reward_sum:7.2f} | Recompensa Ponderada Total: {reward_sum:7.2f}")
     print(f"New Bonus: {bonus:7.2f} | Nuevo Bono: {bonus:7.2f}")
+
+    weights = {
+        "rME": 13,
+        "rAE": 10,
+        "tP": 10,
+        "rL": 15,
+        "rC": 15,
+        "rSC": 13,
+        "tCP": 20
+    }
+
+    weighted_metrics = {
+        "rME": norm_rME * weights["rME"],
+        "rAE": norm_rAE * weights["rAE"],
+        "tP":  norm_tP  * weights["tP"],
+        "rL":  norm_rL  * weights["rL"],
+        "rC":  norm_rC  * weights["rC"],
+        "rSC": norm_rSC * weights["rSC"],
+        "tCP": norm_tCP * weights["tCP"]
+    }
+
+    entry = {
+        "epsilon": EPSILON,
+        "bonus": round(bonus, 2),
+        "landings": landings,
+        "soft_crashes": soft_crashes,
+        "crashes": crashes
+    }
+
+    for key, value in weighted_metrics.items():
+        entry[f"weighted_{key}"] = round(value, 4)
+
+    metadata.append(entry)
 
     # Update replay buffer rewards / Actualizar recompensas en el buffer
     print(f"Updating replay buffer rewards... | Actualizando recompensas en el buffer...")
@@ -317,24 +356,54 @@ while True:
      print("🔄 Training has been reset. | Entrenamiento reiniciado.")
 
     # Model saving condition / Condición para guardar modelo
-    if EPSILON < MINIM_EPSILON_FOR_SAVE and (bonus > 100):
+    if EPSILON < MIN_EPSILON_FOR_SAVE and (bonus > MIN_BONUS_FOR_SAVE):
+      if MAX_AI_SAVES != 0:
         print("\n" + "="*50)
         print("Model Saving Triggered | Activado Guardado de Modelo")
         print("-"*50)
-        print(f"Epsilon threshold crossed: {EPSILON:.3f} < {MINIM_EPSILON_FOR_SAVE:.3f}")
-        print(f"Umbral de épsilon cruzado: {EPSILON:.3f} < {MINIM_EPSILON_FOR_SAVE:.3f}")
+        print(f"Epsilon threshold crossed: {EPSILON:.3f} < {MIN_EPSILON_FOR_SAVE:.3f}")
+        print(f"Umbral de épsilon cruzado: {EPSILON:.3f} < {MIN_EPSILON_FOR_SAVE:.3f}")
         print(f"Performance improvement detected: bonus = {bonus:.2f}")
         print(f"Mejora de rendimiento detectada: bono = {bonus:.2f}")
-        
+    
         BEST_REWARD = bonus
-        NUMBER_SAVES -= 1
         bonus_str = f"{bonus:.2f}".replace('.', '_')
         filename = f"{MODEL_NAME}_bonus{bonus_str}.pth"
-        
+        metadata_filename = f"metadata_bonus{bonus_str}.pth"
+    
         print(f"Saving model to: {filename} | Guardando modelo en: {filename}")
         save_model(model, base_path=PATH, filename=filename)
-        save_metadata(EPSILON, landings, crashes, soft_crashes, base_path=PATH, filename=f"metadata.pth")
+        save_metadata(metadata, base_path=PATH, filename=metadata_filename)
+
+        # Evaluar el modelo guardado
+        average_score, crash_ratio = evaluate_model(filename, TEST_EPISODES, MAX_STEPS)
+
+        # Verificación de rendimiento
+        if crash_ratio < 10 and average_score > 100:
+            print("\n✅ Model PASSED evaluation — retained.")
+            print("✅ El modelo PASÓ la evaluación — se conserva.")
+            MAX_AI_SAVES -=1
+        else:
+            print("\n❌ Model FAILED evaluation — deleting...")
+            print("❌ El modelo FALLÓ la evaluación — eliminando archivos...")
+
+            model_path = os.path.join(PATH, filename)
+            metadata_path = os.path.join(PATH, metadata_filename)
         
-        if NUMBER_SAVES == 0:
-            print("\nTraining completed successfully! | ¡Entrenamiento completado con éxito!")
-            sys.exit("✅ Training stopped after saving model due to epsilon decrease and performance improvement. | ✅ Entrenamiento detenido tras guardar modelo por descenso de EPSILON y mejora de rendimiento.")
+            if os.path.exists(model_path):
+                os.remove(model_path)
+            if os.path.exists(metadata_path):
+                os.remove(metadata_path)
+            
+        EPSILON, landings, crashes, soft_crashes = initialize_state(
+            model,
+            model_path=os.path.join(PATH, f"Null.pth"),
+            metadata_path=os.path.join(PATH, "M.pth")
+        )
+
+      else:
+          print('Training completed')
+          print('Entrenamiento completado')
+          break
+
+
