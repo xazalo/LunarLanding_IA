@@ -356,8 +356,6 @@ while True:
         metadata_path=os.path.join(PATH, "M.pth")
      )
 
-     metadata.clear()
-
      print("🔄 Training has been reset. | Entrenamiento reiniciado.")
 
     # Model saving condition / Condición para guardar modelo
