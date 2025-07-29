@@ -22,7 +22,7 @@ obs_size = env.observation_space.shape[0]
 n_actions = env.action_space.n
 
 model = DQN(obs_size, n_actions)
-model.load_state_dict(torch.load("models/PERFECT_Lula_v1.pth"))  
+model.load_state_dict(torch.load("models/LuLa_v1_bonus388_69_10_PERFECT.pth"))  
 model.eval()  
 
 state, _ = env.reset()
