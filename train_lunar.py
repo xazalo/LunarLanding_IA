@@ -47,8 +47,8 @@ MAX_EPISODES=1500 # Number maxim of episodes
 TEST_EPISODES=200 # Number of test
 MAX_AI_SAVES=10 # Max number of ai saves
 MIN_BONUS_FOR_SAVE=100 # Minim points for save one ia
-MIN_AVERAGE_SCORE=200
-MAX_CRASH_RATIO=0
+MIN_AVERAGE_SCORE=100
+MAX_CRASH_RATIO=10
 CRASH_RATIO_HIGHT=50
 
 # //WARN There are infinite trainings / Hay entrenamientos infinitos

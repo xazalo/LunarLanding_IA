@@ -1,5 +1,6 @@
 import os
 import torch
+import tempfile
 import data_analysis.plot_metadata
 
 def show_files(directory, prefix="metadata_"):
@@ -35,7 +36,6 @@ def show_files(directory, prefix="metadata_"):
 def show_metadata_fields(filepath):
     try:
         metadata = torch.load(filepath, map_location="cpu", weights_only=False)
-        print(metadata)
     except Exception as e:
         print(f"❌ Error al cargar el archivo: {e} | Error loading file: {e}")
         return []
@@ -51,14 +51,19 @@ def show_metadata_fields(filepath):
     print("\n📊 Campos disponibles | Available fields:\n")
     for i, field in enumerate(fields):
         print(f"  [{i+1}] {field}")
+    print(f"  [13] Todos los campos / All fields")
 
-    print("\nSeleccione hasta 2 campos (números o nombres, separados por comas) | Select up to 2 fields (numbers or names, comma-separated):")
+    print("\nSeleccione campos (números o nombres, separados por comas) | Select fields (numbers or names, comma-separated):")
 
     while True:
         user_input = input("\nCampos seleccionados | Selected fields: ").strip()
         if not user_input:
             print("❌ No se ingresaron campos. Intente de nuevo. | No fields entered. Try again.")
             continue
+
+        if user_input.strip() == "13":
+            print("\n✅ Todos los campos seleccionados. | All fields selected.")
+            return fields
 
         candidates = []
         for part in user_input.replace(',', ' ').split():
@@ -84,8 +89,8 @@ def show_metadata_fields(filepath):
             print(f"❌ Campos inválidos: {invalid} | Invalid fields: {invalid}")
             continue
 
-        if len(selected_fields) > 2:
-            print("❌ Máximo 2 campos permitidos. | Maximum 2 fields allowed.")
+        if len(selected_fields) == 0:
+            print("❌ Debes seleccionar al menos un campo. | Select at least one field.")
             continue
 
         break
@@ -94,15 +99,78 @@ def show_metadata_fields(filepath):
     return selected_fields
 
 
+def load_episodes(filepath):
+    """Carga y aplana los episodios de metadata."""
+    metadata = torch.load(filepath, map_location="cpu", weights_only=False)
+    episodes = []
+    for sublist in metadata:
+        if not isinstance(sublist, list):
+            print("⚠️ Estructura inesperada / Unexpected structure")
+            return []
+        episodes.extend(sublist)
+    if not (episodes and isinstance(episodes[0], dict)):
+        print("⚠️ Formato incorrecto / Invalid format")
+        return []
+    return episodes
+
+
+def truncate_episodes_by_epsilon(episodes, low_threshold=0.4, reset_value=1.0):
+    """
+    Detecta el primer punto donde epsilon sube desde < low_threshold hasta >= reset_value,
+    y devuelve sólo episodios desde ese punto hacia adelante.
+    Si no encuentra, devuelve la lista original.
+    """
+    epsilons = [ep.get("epsilon", None) for ep in episodes]
+    for i in range(1, len(epsilons)):
+        prev = epsilons[i-1]
+        curr = epsilons[i]
+        if prev is not None and curr is not None:
+            if prev < low_threshold and curr >= reset_value:
+                print(f"🔁 Reinicio detectado en episodio {i+1}. Se descartan episodios anteriores.")
+                return episodes[i:]
+    return episodes
+
+
 if __name__ == "__main__":
     selected_file = show_files("./models")
     if selected_file:
         filepath = f"./models/{selected_file}"
         print(f"\n📂 Archivo seleccionado | File selected: {selected_file}")
 
+        # Cargamos una vez todos los episodios para la detección y recorte
+        episodes = load_episodes(filepath)
+        if not episodes:
+            exit(1)
+
         while True:
             selected_fields = show_metadata_fields(filepath)
-            data_analysis.plot_metadata.plot_metadata(filepath, selected_fields)
+            if not selected_fields:
+                print("❌ No se seleccionaron campos válidos.")
+                continue
+
+            # Si epsilon está entre campos seleccionados, filtramos los episodios
+            if any(f.lower() == "epsilon" for f in selected_fields):
+                episodes_filtered = truncate_episodes_by_epsilon(episodes)
+            else:
+                episodes_filtered = episodes
+
+            # Guardamos temporalmente los episodios filtrados para que plot_metadata los lea
+            # Reconstruimos la estructura original (lista de listas)
+            # Aquí asumo que los episodios están todos en un solo sublista para simplificar:
+            temp_metadata = [episodes_filtered]
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pt") as tmp_file:
+                torch.save(temp_metadata, tmp_file.name)
+                temp_path = tmp_file.name
+
+            # Llamamos a la función de plotting con el archivo temporal y campos seleccionados
+            data_analysis.plot_metadata.plot_metadata(temp_path, selected_fields, selected_file)
+
+            # Borramos el archivo temporal
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
             choice = input("\n🔁 ¿Quieres seleccionar otros campos? (s/n) | Select other fields? (y/n): ").strip().lower()
             if choice not in ("y", "yes", "s", "si"):
